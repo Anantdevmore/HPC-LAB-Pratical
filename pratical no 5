@@ -1,0 +1,156 @@
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char **argv)
+{
+    MPI_Init(NULL, NULL);
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int data = 33;
+    if (rank != 0)
+    {
+        MPI_Recv(&data, 1, MPI_INT, rank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Process %d received data %d from process %d\n", rank, data, rank - 1);
+    }
+    MPI_Send(&data, 1, MPI_INT, (rank + 1) % size, 0, MPI_COMM_WORLD);
+    printf("process %d sent %d to process %d \n", rank, data, (rank + 1) % size);
+    if (rank == 0)
+    {
+        MPI_Recv(&data, 1, MPI_INT, size - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Process %d received data %d from process %d\n", rank, data, size - 1);
+    }
+    MPI_Finalize();
+}
+ //q1b
+ 
+ #include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main()
+{
+    int numtasks, rank, prev, next, sendVal = 33, recVal, tag1 = 0, tag2 = 1, buf[2];
+
+    MPI_Request reqs[4];
+    MPI_Status stats[4];
+
+    MPI_Init(NULL, NULL);
+    MPI_Comm_size(MPI_COMM_WORLD, &numtasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    prev = rank - 1;
+    next = rank + 1;
+
+    if (rank == 0)
+        prev = numtasks - 1;
+    if (rank == numtasks - 1)
+        next = 0;
+
+    MPI_Irecv(&buf[0], 1, MPI_INT, prev, tag1, MPI_COMM_WORLD, &reqs[0]);
+    MPI_Irecv(&buf[1], 1, MPI_INT, prev, tag2, MPI_COMM_WORLD, &reqs[1]);
+
+    MPI_Isend(&sendVal, 1, MPI_INT, next, tag2, MPI_COMM_WORLD, &reqs[2]);
+    MPI_Isend(&sendVal, 1, MPI_INT, next, tag1, MPI_COMM_WORLD, &reqs[3]);
+
+    PMPI_Waitall(2, reqs, stats);
+    printf("Task %d interacted with taska %d and %d \n", rank, prev, next);
+
+    MPI_Finalize();
+
+    return 0;
+}
+
+// q2
+  
+  
+  #include <mpi.h>
+#include <stdio.h>
+
+int main()
+{
+
+    int first = 1, second = 2, third = 3, fourth = 4;
+
+    MPI_Init(NULL, NULL);
+    MPI_Request reqs[8];
+    MPI_Status stats[8];
+    // int tags[2] = {1, 2};
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (rank == 0)
+        MPI_Isend(&first, 1, MPI_INT, 1, 20, MPI_COMM_WORLD, &reqs[0]);
+
+    if (rank == 1)
+    {
+        MPI_Irecv(&first, 1, MPI_INT, 0, 20, MPI_COMM_WORLD, &reqs[1]);
+
+        printf("process rank-  %d , data received %d \n", rank, first);
+
+        MPI_Isend(&second, 1, MPI_INT, 2, 30, MPI_COMM_WORLD, &reqs[2]);
+    }
+
+    if (rank == 2)
+    {
+        MPI_Irecv(&second, 1, MPI_INT, 1, 30, MPI_COMM_WORLD, &reqs[3]);
+
+        printf("process rank-  %d , data received %d \n", rank, second);
+
+        MPI_Isend(&third, 1, MPI_INT, 3, 40, MPI_COMM_WORLD, &reqs[4]);
+    }
+
+    if (rank == 3)
+    {
+        MPI_Irecv(&third, 1, MPI_INT, 2, 40, MPI_COMM_WORLD, &reqs[5]);
+
+        printf("process rank-  %d , data received %d \n", rank, third);
+
+        MPI_Isend(&fourth, 1, MPI_INT, 0, 50, MPI_COMM_WORLD, &reqs[6]);
+    }
+
+    if (rank == 0)
+    {
+
+        MPI_Irecv(&fourth, 1, MPI_INT, 3, 50, MPI_COMM_WORLD, &reqs[7]);
+
+        printf("process rank-  %d , data received %d \n", rank, fourth);
+    }
+
+    MPI_Finalize();
+}
+   
+   //q3
+   
+   
+   #include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main()
+{
+    int arr[5] = {1, 2, 3, 4, 5};
+    MPI_Init(NULL, NULL);
+    int size, rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int prod = 1;
+
+    prod = arr[rank];
+
+    int prod_main;
+    MPI_Reduce(&prod, &prod_main, 1, MPI_INT, MPI_PROD, 0, MPI_COMM_WORLD);
+
+    if (rank == 0)
+        printf("Product of array elements is : %d\n", prod_main);
+
+    MPI_Finalize();
+
+    return 0;
+}
+   
