@@ -1,0 +1,182 @@
+#include<stdio.h>
+#include<omp.h>
+void main()
+{
+int a[5]={1,2,3,4,5};
+int b[5]={6,7,8,9,10};
+int c[5];
+int tid;
+
+#pragma omp parallel num_threads(5)
+{
+tid=omp_get_thread_num();
+c[tid]=a[tid]+b[tid];
+printf("c[%d]=%d\n",tid,c[tid]);
+}
+
+} 
+
+
+
+
+
+//
+
+
+// ESEq22.cpp : This file contains the 'main' function. Program execution begins and ends there.
+//
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
+int main(int argc, char** argv) {
+
+    MPI_Init(NULL, NULL);
+
+    int world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    if (world_size < 2) {
+        fprintf(stderr, "World size must be greater than 1 for %s\n", argv[0]);
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+
+    //int number;
+    char charecter = 'b';
+    if (world_rank == 0) {
+        //number = -1;
+        charecter = 'b';
+        MPI_Send(
+            /* data         = */ &charecter,
+            /* count        = */ 1,
+            /* datatype     = */ MPI_CHAR,
+            /* destination  = */ 1,
+            /* tag          = */ 1,
+            /* communicator = */ MPI_COMM_WORLD);
+    }
+    else if (world_rank == 1) {
+        MPI_Recv(
+            /* data         = */ &charecter,
+            /* count        = */ 1,
+            /* datatype     = */ MPI_CHAR,
+            /* source       = */ 0,
+            /* tag          = */ 1,
+            /* communicator = */ MPI_COMM_WORLD,
+            /* status       = */ MPI_STATUS_IGNORE);
+        printf("Process 1 received number %c from process 0\n", charecter);
+    }
+    MPI_Finalize();
+}
+
+// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
+// Debug program: F5 or Debug > Start Debugging menu
+
+// Tips for Getting Started: 
+//   1. Use the Solution Explorer window to add/manage files
+//   2. Use the Team Explorer window to connect to source control
+//   3. Use the Output window to see build output and other messages
+//   4. Use the Error List window to view errors
+//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
+//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+
+
+
+
+//
+
+
+
+%%cu
+#include <stdio.h>
+#include <cuda.h>
+#include <time.h>
+
+__global__
+void kernel(float *vec, float *mat, float *out, const int N, const int M){
+    int tid=threadIdx.x+blockIdx.x*blockDim.x;
+        float sum=0;
+    if(tid<M){
+        for(int i=0; i<N; i++)
+            sum += vec[i]*mat[(i*M)+tid];
+        out[tid]=sum;
+    }
+}
+
+// debuging functions
+void init_array(float *a, const int N);
+void init_mat(float *a, const int N, const int M);
+void print_array(float *a, const int N, char *d);
+void print_mat(float *a, const int N, const int M, char *d);
+
+int main (void) {
+        srand( time(NULL) );
+
+    float *a, *b, *c;
+        float *dev_a, *dev_b, *dev_c;
+
+    int N=3;
+    int M=4;
+    a=(float*)malloc(sizeof(float)*N);
+    b=(float*)malloc(sizeof(float)*N*M);
+    c=(float*)malloc(sizeof(float)*M);
+        init_array(a, N);
+        init_mat(b, N, M);
+        init_array(c, M);
+
+    printf("<<<<<<<<<< initial data:\n");
+        print_array(a, N, "in-vector");
+        print_mat(b, N, M, "matrix");
+        print_array(c, M, "out-vector");
+
+        cudaMalloc((void**)&dev_a, sizeof(float)*N);
+        cudaMalloc((void**)&dev_b, sizeof(float)*N*M);
+        cudaMalloc((void**)&dev_c, sizeof(float)*M);
+
+        cudaMemcpy(dev_a, a, sizeof(float)*N, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_b, b, sizeof(float)*N*M, cudaMemcpyHostToDevice);
+
+    printf("\n\nRunning Kernel...\n\n");
+        kernel<<<M/256+1, 256>>>(dev_a, dev_b, dev_c, N, M);
+        //printf("error code: %s\n",cudaGetErrorString(cudaGetLastError()));
+
+        cudaMemcpy(c, dev_c, sizeof(float)*M, cudaMemcpyDeviceToHost);
+
+        cudaFree(dev_a);
+        cudaFree(dev_b);
+        cudaFree(dev_c);
+
+    printf(">>>>>>>>>> final data:\n");
+        print_array(c, M, "out-vector");
+
+        return 0;
+};
+
+void init_array(float *a, const int N) {
+        int i;
+        for(i=0; i<N; i++)
+                a[i] = rand() % 4 + 1;
+}
+void init_mat(float *a, const int N, const int M) {
+        int i, j;
+        for(i=0; i<N; i++)
+            for(j=0; j<M; j++)
+                    a[i*M+j] = rand() % 4 + 1;
+}
+void print_array(float *a, const int N, char *d) {
+        int i;
+        for(i=0; i<N; i++)
+                printf("\n%s[%d]: %f",d, i, a[i]);
+    printf("\n");
+}
+void print_mat(float *a, const int N, const int M, char *d) {
+        int i, j;
+        for(i=0; i<N; i++){
+        printf("\n%s[%d]:", d, i);
+        for (j=0; j<M; j++)
+                    printf("\t%6.4f", a[i*M+j]);
+    }
+    printf("\n");
+}
